@@ -39,9 +39,9 @@ COPY . .
 # Generate Gradle wrapper and build APK
 RUN gradle wrapper && ./gradlew assembleDebug --no-daemon
 
-# Create output directory and copy APK
-RUN mkdir -p /app/output && \
-    cp app/build/outputs/apk/debug/app-debug.apk /app/output/
+# Create build output directory and copy APK (separate from mount point)
+RUN mkdir -p /build-output && \
+    cp app/build/outputs/apk/debug/app-debug.apk /build-output/
 
-# Default command - copy APK to mounted volume
-CMD ["cp", "/app/output/app-debug.apk", "/app/output/"]
+# Default command - copy APK to mounted volume at runtime
+CMD ["sh", "-c", "cp /build-output/app-debug.apk /app/output/ && echo 'APK copied successfully!' && ls -la /app/output/"]
