@@ -29,7 +29,7 @@ import androidx.core.view.WindowInsetsControllerCompat
  */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private var webView: WebView? = null
     private val handler = Handler(Looper.getMainLooper())
 
     // Cursor auto-hide
@@ -59,13 +59,14 @@ class MainActivity : AppCompatActivity() {
         setupFullscreen()
 
         // Create and configure WebView
-        webView = createWebView()
-        setContentView(webView)
+        val wv = createWebView()
+        webView = wv
+        setContentView(wv)
 
         // Load player URL
         val url = PrefsHelper.getPlayerUrl(this)
         if (url != null) {
-            webView.loadUrl(url)
+            wv.loadUrl(url)
         }
 
         // Start cursor hide timer
@@ -173,7 +174,7 @@ class MainActivity : AppCompatActivity() {
             isCursorHidden = true
             // Use transparent pointer icon (API 24+)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                webView.pointerIcon = PointerIcon.getSystemIcon(this, PointerIcon.TYPE_NULL)
+                webView?.pointerIcon = PointerIcon.getSystemIcon(this, PointerIcon.TYPE_NULL)
             }
         }
     }
@@ -182,7 +183,7 @@ class MainActivity : AppCompatActivity() {
         if (isCursorHidden) {
             isCursorHidden = false
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                webView.pointerIcon = PointerIcon.getSystemIcon(this, PointerIcon.TYPE_DEFAULT)
+                webView?.pointerIcon = PointerIcon.getSystemIcon(this, PointerIcon.TYPE_DEFAULT)
             }
         }
     }
@@ -194,18 +195,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         setupFullscreen()
-        webView.onResume()
+        webView?.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        webView.onPause()
+        webView?.onPause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
-        webView.destroy()
+        webView?.destroy()
     }
 
     @Deprecated("Deprecated in Java")
