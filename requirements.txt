@@ -1,0 +1,36 @@
+# Android Kiosk Build Requirements
+
+## Build Environment
+- JDK 17+ (OpenJDK recommended)
+- Android SDK (API level 34)
+- Android Build Tools 34.0.0
+- Gradle 8.2
+
+## Docker Build (Recommended)
+Use the included Dockerfile - no local setup required.
+
+```bash
+# Build APK with Docker
+docker build -t signage-kiosk-builder .
+docker run --rm -v $(pwd)/output:/app/output signage-kiosk-builder
+
+# APK will be in: ./output/app-debug.apk
+```
+
+## Manual Build
+1. Install JDK 17: https://adoptium.net/
+2. Set JAVA_HOME environment variable
+3. Install Android Studio or Android Command Line Tools
+4. Accept licenses: sdkmanager --licenses
+5. Run: ./gradlew assembleDebug
+
+## Install on TV
+```bash
+adb connect <TV_IP>:5555
+adb install output/app-debug.apk
+```
+
+## TV Requirements
+- Android 5.0+ (API 21+)
+- Developer mode enabled
+- USB debugging or ADB over WiFi enabled
