@@ -23,17 +23,21 @@ RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
 RUN yes | sdkmanager --licenses && \
     sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+# Install Gradle
+ENV GRADLE_VERSION=8.2
+RUN wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O /tmp/gradle.zip && \
+    unzip -q /tmp/gradle.zip -d /opt && \
+    ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/local/bin/gradle && \
+    rm /tmp/gradle.zip
+
 # Set working directory
 WORKDIR /app
 
 # Copy project files
 COPY . .
 
-# Make gradlew executable
-RUN chmod +x ./gradlew
-
-# Build APK
-RUN ./gradlew assembleDebug --no-daemon
+# Generate Gradle wrapper and build APK
+RUN gradle wrapper && ./gradlew assembleDebug --no-daemon
 
 # Create output directory and copy APK
 RUN mkdir -p /app/output && \
