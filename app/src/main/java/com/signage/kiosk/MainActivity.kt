@@ -128,9 +128,6 @@ class MainActivity : AppCompatActivity() {
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 }
             }
-            
-            // Set initial scale to 0 for auto-fit
-            setInitialScale(0)
 
             // Handle navigation within WebView
             webViewClient = object : WebViewClient() {
@@ -139,22 +136,6 @@ class MainActivity : AppCompatActivity() {
                     request: WebResourceRequest?
                 ): Boolean {
                     return false // Load all URLs in WebView
-                }
-                
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    // Inject viewport meta tag to ensure proper scaling
-                    view?.evaluateJavascript("""
-                        (function() {
-                            var viewport = document.querySelector('meta[name="viewport"]');
-                            if (!viewport) {
-                                viewport = document.createElement('meta');
-                                viewport.name = 'viewport';
-                                document.head.appendChild(viewport);
-                            }
-                            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-                        })();
-                    """.trimIndent(), null)
                 }
             }
 
