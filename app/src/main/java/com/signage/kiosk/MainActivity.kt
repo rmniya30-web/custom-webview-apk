@@ -107,8 +107,12 @@ class MainActivity : AppCompatActivity() {
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                useWideViewPort = true
-                loadWithOverviewMode = true
+                
+                // Viewport settings - disable wide viewport to properly fill screen
+                useWideViewPort = false
+                loadWithOverviewMode = false
+                
+                // Zoom settings
                 setSupportZoom(false)
                 displayZoomControls = false
                 builtInZoomControls = false
