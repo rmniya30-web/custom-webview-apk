@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
+                databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -111,6 +112,17 @@ class MainActivity : AppCompatActivity() {
                 setSupportZoom(false)
                 displayZoomControls = false
                 builtInZoomControls = false
+                
+                // Additional settings for video playback
+                allowFileAccess = true
+                allowContentAccess = true
+                javaScriptCanOpenWindowsAutomatically = true
+                loadsImagesAutomatically = true
+                
+                // Enable Media Source Extensions (MSE) for seamless video
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                }
             }
 
             // Handle navigation within WebView
@@ -123,11 +135,24 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Suppress video controls
+            // Suppress video controls and handle fullscreen
             webChromeClient = object : WebChromeClient() {
                 override fun onHideCustomView() {
                     super.onHideCustomView()
                     setupFullscreen() // Restore fullscreen after video
+                }
+
+                // Log JavaScript console messages for debugging
+                override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                    consoleMessage?.let {
+                        android.util.Log.d("WebViewJS", "${it.messageLevel()}: ${it.message()} [${it.sourceId()}:${it.lineNumber()}]")
+                    }
+                    return true
+                }
+
+                // Handle any permission requests for media
+                override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+                    request?.grant(request.resources)
                 }
             }
 
