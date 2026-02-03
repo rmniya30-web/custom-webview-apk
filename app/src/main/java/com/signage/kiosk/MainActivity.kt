@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // Viewport settings for proper scaling
+                // Viewport settings - Enable these to respect viewport meta tags
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 
@@ -136,6 +136,34 @@ class MainActivity : AppCompatActivity() {
                     request: WebResourceRequest?
                 ): Boolean {
                     return false // Load all URLs in WebView
+                }
+                
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    // Inject CSS and Viewport Meta via JS to ensure Kiosk behavior
+                    val js = """
+                        (function() {
+                            // 1. Force Viewport
+                            var meta = document.querySelector('meta[name="viewport"]');
+                            if (!meta) {
+                                meta = document.createElement('meta');
+                                meta.name = 'viewport';
+                                document.head.appendChild(meta);
+                            }
+                            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                            
+                            // 2. Inject Critical CSS
+                            var style = document.createElement('style');
+                            style.innerHTML = `
+                                html, body { background-color: #000 !important; width: 100vw; height: 100vh; overflow: hidden; margin: 0; padding: 0; }
+                                video { object-fit: contain !important; width: 100% !important; height: 100% !important; }
+                                video::-webkit-media-controls { display: none !important; }
+                                video::-webkit-media-controls-enclosure { display: none !important; }
+                            `;
+                            document.head.appendChild(style);
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(js, null)
                 }
             }
 
