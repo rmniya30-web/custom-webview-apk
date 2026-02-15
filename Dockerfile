@@ -79,13 +79,35 @@ RUN cd android && \
     echo "# Optimizations for low-end devices" >> gradle.properties && \
     echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties && \
     echo "android.enableR8.fullMode=true" >> gradle.properties && \
-    # Fix Kotlin version mismatch (deps compiled with 2.2.0, RN ships 2.0.x)
     echo "kotlinVersion=2.2.0" >> gradle.properties && \
     # Bump minSdk to 28 (Android 9) — all signage devices are 9+
-    sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/' app/build.gradle && \
-    # Patch Kotlin Gradle plugin version in build.gradle
-    sed -i 's/org.jetbrains.kotlin.android" version "[^"]*"/org.jetbrains.kotlin.android" version "2.2.0"/' build.gradle && \
-    sed -i 's/kotlin-android" version "[^"]*"/kotlin-android" version "2.2.0"/' build.gradle
+    find . -name '*.gradle' -o -name '*.gradle.kts' | xargs sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/g'
+
+# Fix Kotlin version mismatch: deps compiled with 2.2.0, RN ships 2.0.x
+# Use Node to reliably patch all Gradle files regardless of DSL format
+RUN cd android && node -e " \
+  const fs = require('fs'); \
+  const path = require('path'); \
+  function walk(dir) { \
+    const files = []; \
+    for (const f of fs.readdirSync(dir, { withFileTypes: true })) { \
+      const p = path.join(dir, f.name); \
+      if (f.isDirectory() && f.name !== 'node_modules' && f.name !== '.gradle') files.push(...walk(p)); \
+      else if (/\.(gradle|gradle\.kts|properties)$/.test(f.name)) files.push(p); \
+    } \
+    return files; \
+  } \
+  const files = walk('.'); \
+  for (const f of files) { \
+    let c = fs.readFileSync(f, 'utf8'); \
+    const orig = c; \
+    c = c.replace(/org\.jetbrains\.kotlin[.:]['\"]?android['\"]?\s*(version\s*)?['\"]2\.\d+\.\d+['\"]/g, (m) => m.replace(/2\.\d+\.\d+/, '2.2.0')); \
+    c = c.replace(/kotlin-android['\"]?\s*version\s*['\"]2\.\d+\.\d+['\"]/g, (m) => m.replace(/2\.\d+\.\d+/, '2.2.0')); \
+    c = c.replace(/kotlinVersion\s*=\s*['\"]?2\.\d+\.\d+['\"]?/g, 'kotlinVersion=2.2.0'); \
+    if (c !== orig) { fs.writeFileSync(f, c); console.log('Patched: ' + f); } \
+  } \
+  console.log('Kotlin version patched to 2.2.0 in ' + files.length + ' files scanned'); \
+"
 
 # ── Step 7: Create JS bundle (offline) ────────────────────────
 RUN npx react-native bundle \
