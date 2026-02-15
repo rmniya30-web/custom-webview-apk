@@ -14,7 +14,7 @@
 #   docker rm tmp
 # ───────────────────────────────────────────────────────────────
 
-FROM reactnativecommunity/react-native-android:13.0 AS builder
+FROM reactnativecommunity/docker-android:v13.2.1 AS builder
 
 # Build-time args → baked into .env at build time
 ARG SOCKET_URL=http://localhost:3001
