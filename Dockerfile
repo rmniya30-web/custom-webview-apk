@@ -72,23 +72,19 @@ RUN mkdir -p android/app/src/main/java/com/signageplayer
 COPY patches/BootReceiver.java android/app/src/main/java/com/signageplayer/BootReceiver.java
 
 # ── Step 6: Configure Gradle for optimized release build ──────
-# Enable Hermes, ProGuard, and set signing to debug key for now
 RUN cd android && \
+    # Downgrade Gradle 9.0 → 8.10.2 (Gradle 9 ships Kotlin 2.2.0 which is
+    # incompatible with RN 0.77's Kotlin 2.0.x compiler)
+    sed -i 's|gradle-[0-9.]*-bin.zip|gradle-8.10.2-bin.zip|' gradle/wrapper/gradle-wrapper.properties && \
     # Ensure gradle.properties has the right settings
     echo "" >> gradle.properties && \
     echo "# Optimizations for low-end devices" >> gradle.properties && \
     echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties && \
     echo "android.enableR8.fullMode=true" >> gradle.properties && \
-    echo "kotlinVersion=2.2.0" >> gradle.properties && \
     # Bump minSdk to 28 (Android 9) — all signage devices are 9+
-    find . -name '*.gradle' -o -name '*.gradle.kts' | xargs sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/g'
-
-# ── Step 6b: Fix Kotlin version (Gradle 9.0 needs Kotlin 2.2.0) ─
-COPY patches/fix-kotlin-version.js /tmp/fix-kotlin-version.js
-RUN cd android && node /tmp/fix-kotlin-version.js . && \
-    echo "=== settings.gradle.kts ===" && cat settings.gradle.kts 2>/dev/null || true && \
-    echo "=== build.gradle.kts ===" && cat build.gradle.kts 2>/dev/null || true && \
-    echo "=== build.gradle ===" && cat build.gradle 2>/dev/null || true
+    find . -name '*.gradle.kts' -o -name '*.gradle' | xargs sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/g' && \
+    # Debug: show Gradle version being used
+    cat gradle/wrapper/gradle-wrapper.properties
 
 # ── Step 7: Create JS bundle (offline) ────────────────────────
 RUN npx react-native bundle \
