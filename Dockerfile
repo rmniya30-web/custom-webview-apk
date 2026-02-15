@@ -14,7 +14,7 @@
 #   docker rm tmp
 # ───────────────────────────────────────────────────────────────
 
-FROM reactnativecommunity/docker-android:v13.2.1 AS builder
+FROM reactnativecommunity/react-native-android:latest AS builder
 
 # Build-time args → baked into .env at build time
 ARG SOCKET_URL=http://localhost:3001
@@ -78,7 +78,9 @@ RUN cd android && \
     echo "" >> gradle.properties && \
     echo "# Optimizations for low-end devices" >> gradle.properties && \
     echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties && \
-    echo "android.enableR8.fullMode=true" >> gradle.properties
+    echo "android.enableR8.fullMode=true" >> gradle.properties && \
+    # Bump minSdk to 28 (Android 9) — all signage devices are 9+
+    sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/' app/build.gradle
 
 # ── Step 7: Create JS bundle (offline) ────────────────────────
 RUN npx react-native bundle \
