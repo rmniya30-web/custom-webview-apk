@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SOCKET_URL: ${SOCKET_URL:-http://localhost:3001}
+        DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+        MAX_CACHE_MB: ${MAX_CACHE_MB:-200}
+    image: signage-player
+    volumes:
+      - ./output:/host-output
+    entrypoint: ["/bin/sh", "-c", "cp /output/signage-player.apk /host-output/ && echo 'APK copied to ./output/'"]

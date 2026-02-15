@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+android/app/build/
+*.apk
+*.aab
+
+# Bundle
+*.jsbundle
+*.bundle
+
+# Env (template committed, actual .env is not)
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+android/captures/
+android/app/debug/
+android/app/release/
+
+# Temporary
+*.log
