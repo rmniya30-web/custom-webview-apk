@@ -6,11 +6,11 @@
  */
 
 import RNFS from 'react-native-fs';
-import Config from 'react-native-config';
+import { MAX_CACHE_MB as MAX_CACHE_MB_ENV } from '@env';
 
 const CACHE_DIR = `${RNFS.CachesDirectoryPath}/video-cache`;
 const MANIFEST_PATH = `${CACHE_DIR}/_manifest.json`;
-const MAX_CACHE_MB = parseInt(Config.MAX_CACHE_MB || '200', 10);
+const MAX_CACHE_MB = parseInt(MAX_CACHE_MB_ENV || '200', 10);
 const MAX_CACHE_BYTES = MAX_CACHE_MB * 1024 * 1024;
 
 interface CacheEntry {

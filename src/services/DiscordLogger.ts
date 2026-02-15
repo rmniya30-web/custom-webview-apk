@@ -4,7 +4,7 @@
  * Ported from digital-sign/app/player/page.tsx sendDiscordLog()
  */
 
-import Config from 'react-native-config';
+import { DISCORD_WEBHOOK_URL } from '@env';
 
 // Throttle: prevent spam during error loops
 let lastSendTime = 0;
@@ -43,7 +43,7 @@ export async function sendDiscordLog(
     description: string,
     color: number,
 ): Promise<void> {
-    const webhookUrl = Config.DISCORD_WEBHOOK_URL;
+    const webhookUrl = DISCORD_WEBHOOK_URL;
     if (!webhookUrl) return;
 
     // Throttle

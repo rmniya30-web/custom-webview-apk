@@ -7,7 +7,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Config from 'react-native-config';
+import { SOCKET_URL } from '@env';
 import { NativeModules } from 'react-native';
 import { WebSocketMessage, DeviceConfig } from '../types';
 
@@ -44,7 +44,7 @@ class SocketService {
         // Disconnect existing socket if any
         this.disconnect();
 
-        const socketUrl = Config.SOCKET_URL || 'http://localhost:3001';
+        const socketUrl = SOCKET_URL || 'http://localhost:3001';
         const savedJson = await AsyncStorage.getItem(STORAGE_KEY);
         const savedData: Partial<DeviceConfig> = savedJson
             ? JSON.parse(savedJson)
