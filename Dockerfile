@@ -49,6 +49,9 @@ RUN node -e " \
 
 RUN npm install --legacy-peer-deps
 
+# Gradle 9.0 removed jcenter() — replace with mavenCentral() in all deps
+RUN find node_modules -name '*.gradle' -exec sed -i 's/jcenter()/mavenCentral()/g' {} +
+
 # ── Step 3: Copy our source files (overlay generated ones) ────
 COPY index.js .
 COPY app.json .
