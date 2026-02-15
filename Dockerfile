@@ -73,18 +73,15 @@ COPY patches/BootReceiver.java android/app/src/main/java/com/signageplayer/BootR
 
 # ── Step 6: Configure Gradle for optimized release build ──────
 RUN cd android && \
-    # Downgrade Gradle 9.0 → 8.10.2 (Gradle 9 ships Kotlin 2.2.0 which is
-    # incompatible with RN 0.77's Kotlin 2.0.x compiler)
-    sed -i 's|gradle-[0-9.]*-bin.zip|gradle-8.10.2-bin.zip|' gradle/wrapper/gradle-wrapper.properties && \
     # Ensure gradle.properties has the right settings
     echo "" >> gradle.properties && \
-    echo "# Optimizations for low-end devices" >> gradle.properties && \
-    echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties && \
+    echo "# Memory-optimized for CI (8GB host)" >> gradle.properties && \
+    echo "org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError" >> gradle.properties && \
+    echo "org.gradle.workers.max=2" >> gradle.properties && \
+    echo "org.gradle.parallel=false" >> gradle.properties && \
     echo "android.enableR8.fullMode=true" >> gradle.properties && \
     # Bump minSdk to 28 (Android 9) — all signage devices are 9+
-    find . -name '*.gradle.kts' -o -name '*.gradle' | xargs sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/g' && \
-    # Debug: show Gradle version being used
-    cat gradle/wrapper/gradle-wrapper.properties
+    find . -name '*.gradle.kts' -o -name '*.gradle' | xargs sed -i 's/minSdk\s*=\s*[0-9]*/minSdk = 28/g'
 
 # ── Step 7: Create JS bundle (offline) ────────────────────────
 RUN npx react-native bundle \
