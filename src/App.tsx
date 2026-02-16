@@ -10,6 +10,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar, AppState, AppStateStatus, NativeModules } from 'react-native';
 import KeepAwake from 'react-native-keep-awake';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { socketService } from './services/SocketService';
 import { cacheService } from './services/CacheService';
 import {
@@ -104,108 +105,84 @@ const App: React.FC = () => {
     // ── Socket Message Handler ─────────────────────────────────────
     const handleMessage = useCallback(
         async (message: WebSocketMessage) => {
-            switch (message.type) {
-                // ── Registration (New device, no token) ──
-                case 'register':
-                    if (message.payload?.code) {
-                        setPairingCode(message.payload.code);
-                        setAppState('pairing');
-                    }
-                    break;
+            try {
+                switch (message.type) {
+                    // ── Registration (New device, no token) ──
+                    case 'register':
+                        if (message.payload?.code) {
+                            setPairingCode(message.payload.code);
+                            setAppState('pairing');
+                        }
+                        break;
 
-                // ── Paired (Dashboard claimed this device) ──
-                case 'paired':
-                    if (message.payload) {
-                        const { id, code, name, token } = message.payload as any;
-                        setDeviceId(id || '');
-                        setDeviceCode(code || '');
-                        setDeviceName(name || '');
-                        setDeviceInfo({ name: name || '', code: code || '', id: id || '' });
-                        await socketService.saveCredentials({ id, code, name, token });
-                        socketService.startHeartbeat();
-                        setAppState('sleeping'); // Wait for playlist
-                    }
-                    break;
+                    // ── Paired (Dashboard claimed this device) ──
+                    case 'paired':
+                        if (message.payload) {
+                            const { id, code, name, token } = message.payload as any;
+                            setDeviceId(id || '');
+                            setDeviceCode(code || '');
+                            setDeviceName(name || '');
+                            setDeviceInfo({ name: name || '', code: code || '', id: id || '' });
+                            await socketService.saveCredentials({ id, code, name, token });
+                            socketService.startHeartbeat();
+                            setAppState('sleeping'); // Wait for playlist
+                        }
+                        break;
 
-                // ── Auth (Returning device, token recognized) ──
-                case 'auth':
-                    if (message.payload) {
-                        const p = message.payload as any;
-                        setDeviceId(p.id || '');
-                        setDeviceCode(p.code || '');
-                        setDeviceName(p.name || '');
-                        setOrientation(p.orientation || '0');
-                        setDeviceInfo({
-                            name: p.name || '',
-                            code: p.code || '',
-                            id: p.id || '',
-                        });
+                    // ── Auth (Returning device, token recognized) ──
+                    case 'auth':
+                        if (message.payload) {
+                            const p = message.payload as any;
+                            setDeviceId(p.id || '');
+                            setDeviceCode(p.code || '');
+                            setDeviceName(p.name || '');
+                            setOrientation(p.orientation || '0');
+                            setDeviceInfo({
+                                name: p.name || '',
+                                code: p.code || '',
+                                id: p.id || '',
+                            });
 
-                        socketService.startHeartbeat();
+                            socketService.startHeartbeat();
 
-                        // Handle playlist from auth
-                        if (p.playlist && Array.isArray(p.playlist) && p.playlist.length > 0) {
-                            setPlaylist(p.playlist);
+                            // Handle playlist from auth
+                            if (p.playlist && Array.isArray(p.playlist) && p.playlist.length > 0) {
+                                setPlaylist(p.playlist);
+                                setPlayerKey((prev) => prev + 1);
+                                setAppState('playing');
+                            } else {
+                                setAppState('sleeping');
+                            }
+                        }
+                        break;
+
+                    // ── Play single video ──
+                    case 'play':
+                        if (message.payload?.url) {
+                            const singleVideo: VideoSource = { url: message.payload.url };
+                            setPlaylist([singleVideo]);
                             setPlayerKey((prev) => prev + 1);
                             setAppState('playing');
-                        } else {
-                            setAppState('sleeping');
                         }
-                    }
-                    break;
+                        break;
 
-                // ── Play single video ──
-                case 'play':
-                    if (message.payload?.url) {
-                        const singleVideo: VideoSource = { url: message.payload.url };
-                        setPlaylist([singleVideo]);
-                        setPlayerKey((prev) => prev + 1);
-                        setAppState('playing');
-                    }
-                    break;
+                    // ── Stop playback ──
+                    case 'stop':
+                        setPlaylist([]);
+                        setAppState('sleeping');
+                        break;
 
-                // ── Stop playback ──
-                case 'stop':
-                    setPlaylist([]);
-                    setAppState('sleeping');
-                    break;
+                    // ── Hibernate (server-driven sleep) ──
+                    case 'hibernate':
+                        setPlaylist([]);
+                        setAppState('sleeping');
+                        break;
 
-                // ── Hibernate (server-driven sleep) ──
-                case 'hibernate':
-                    setPlaylist([]);
-                    setAppState('sleeping');
-                    break;
+                    // ── Playlist update ──
+                    case 'play_list':
+                        if (message.payload?.playlist) {
+                            const newPlaylist = message.payload.playlist;
 
-                // ── Playlist update ──
-                case 'play_list':
-                    if (message.payload?.playlist) {
-                        const newPlaylist = message.payload.playlist;
-
-                        if (newPlaylist.length > 0) {
-                            setPlaylist(newPlaylist);
-                            setPlayerKey((prev) => prev + 1);
-                            setAppState('playing');
-                        } else {
-                            setPlaylist([]);
-                            setAppState('sleeping');
-                        }
-                    }
-                    break;
-
-                // ── Sync state (heartbeat response with latest state) ──
-                case 'sync_state':
-                    if (message.payload?.orientation) {
-                        setOrientation(message.payload.orientation);
-                    }
-
-                    if (message.payload?.playlist) {
-                        const newPlaylist = message.payload.playlist;
-
-                        // Smart sync: only reset player if playlist actually changed
-                        const currentUrls = playlistRef.current.map((v) => v.url).join('|');
-                        const newUrls = newPlaylist.map((v: any) => v.url).join('|');
-
-                        if (currentUrls !== newUrls) {
                             if (newPlaylist.length > 0) {
                                 setPlaylist(newPlaylist);
                                 setPlayerKey((prev) => prev + 1);
@@ -215,33 +192,61 @@ const App: React.FC = () => {
                                 setAppState('sleeping');
                             }
                         }
-                    }
-                    break;
+                        break;
 
-                // ── Unpair ──
-                case 'unpair':
-                    await socketService.clearCredentials();
-                    socketService.disconnect();
-                    setAppState('loading');
-                    // Reconnect fresh (will start pairing flow)
-                    socketService.connect();
-                    break;
+                    // ── Sync state (heartbeat response with latest state) ──
+                    case 'sync_state':
+                        if (message.payload?.orientation) {
+                            setOrientation(message.payload.orientation);
+                        }
 
-                // ── Reset (manual from dashboard) ──
-                case 'reset':
-                    sendDiscordLog(
-                        '🔄 Manual Reset',
-                        'Manual reset signal received from dashboard.',
-                        16744192,
-                    );
-                    setTimeout(() => {
-                        NativeModules.DevSettings?.reload?.();
-                    }, 1000);
-                    break;
+                        if (message.payload?.playlist) {
+                            const newPlaylist = message.payload.playlist;
 
-                // ── Schedule update (info only) ──
-                case 'schedule_update':
-                    break;
+                            // Smart sync: only reset player if playlist actually changed
+                            const currentUrls = playlistRef.current.map((v) => v.url).join('|');
+                            const newUrls = newPlaylist.map((v: any) => v.url).join('|');
+
+                            if (currentUrls !== newUrls) {
+                                if (newPlaylist.length > 0) {
+                                    setPlaylist(newPlaylist);
+                                    setPlayerKey((prev) => prev + 1);
+                                    setAppState('playing');
+                                } else {
+                                    setPlaylist([]);
+                                    setAppState('sleeping');
+                                }
+                            }
+                        }
+                        break;
+
+                    // ── Unpair ──
+                    case 'unpair':
+                        await socketService.clearCredentials();
+                        socketService.disconnect();
+                        setAppState('loading');
+                        // Reconnect fresh (will start pairing flow)
+                        socketService.connect();
+                        break;
+
+                    // ── Reset (manual from dashboard) ──
+                    case 'reset':
+                        sendDiscordLog(
+                            '🔄 Manual Reset',
+                            'Manual reset signal received from dashboard.',
+                            16744192,
+                        );
+                        setTimeout(() => {
+                            NativeModules.DevSettings?.reload?.();
+                        }, 1000);
+                        break;
+
+                    // ── Schedule update (info only) ──
+                    case 'schedule_update':
+                        break;
+                }
+            } catch (err: any) {
+                console.error('[handleMessage]', err?.message);
             }
         },
         [],
@@ -273,7 +278,11 @@ const App: React.FC = () => {
 
     // ── Render ─────────────────────────────────────────────────────
     return (
-        <>
+        <ErrorBoundary
+            onError={(err) => {
+                console.error('[ErrorBoundary]', err.message);
+            }}
+        >
             <KeepAwake />
             <StatusBar hidden />
 
@@ -291,7 +300,7 @@ const App: React.FC = () => {
                     onRefresh={handleRefresh}
                 />
             )}
-        </>
+        </ErrorBoundary>
     );
 };
 
