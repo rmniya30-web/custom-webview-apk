@@ -69,6 +69,9 @@ RUN echo "SOCKET_URL=${SOCKET_URL}" > .env && \
 COPY patches/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 COPY patches/strings.xml android/app/src/main/res/values/strings.xml
 COPY patches/styles.xml android/app/src/main/res/values/styles.xml
+# Copy TV banner
+RUN mkdir -p android/app/src/main/res/drawable
+COPY patches/banner.xml android/app/src/main/res/drawable/banner.xml
 
 # Copy BootReceiver to the correct package directory
 RUN mkdir -p android/app/src/main/java/com/signageplayer
