@@ -23,9 +23,10 @@ ErrorUtils.setGlobalHandler((error, isFatal) => {
 });
 
 // Unhandled promise rejections
+// Unhandled promise rejections
 if (typeof global !== 'undefined') {
-    const originalRejection = (global as any).onunhandledrejection;
-    (global as any).onunhandledrejection = (event: any) => {
+    const originalRejection = global.onunhandledrejection;
+    global.onunhandledrejection = (event) => {
         console.warn('[UnhandledRejection]', event?.reason?.message || event?.reason);
         // Don't propagate — prevents crash
         if (originalRejection) originalRejection(event);
