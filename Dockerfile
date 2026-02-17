@@ -84,6 +84,25 @@ RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/im
 RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())|g' || true
 RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());|g' || true
 
+# ── Step 5.1: Replace Default Icon ──────────────────────────────
+RUN rm -rf android/app/src/main/res/mipmap-anydpi-v26 && \
+    mkdir -p android/app/src/main/res/mipmap-xxxhdpi && \
+    mkdir -p android/app/src/main/res/mipmap-xxhdpi && \
+    mkdir -p android/app/src/main/res/mipmap-xhdpi && \
+    mkdir -p android/app/src/main/res/mipmap-hdpi && \
+    mkdir -p android/app/src/main/res/mipmap-mdpi
+    
+COPY patches/app_icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+RUN cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png && \
+    cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+
 # ── Step 6: Configure Gradle for optimized release build ──────
 RUN cd android && \
     # Ensure gradle.properties has the right settings
