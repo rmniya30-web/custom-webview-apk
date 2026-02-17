@@ -97,7 +97,11 @@ const App: React.FC = () => {
 
             // Restart the app
             setTimeout(() => {
-                NativeModules.DevSettings?.reload?.();
+                if (NativeModules.RestartModule) {
+                    NativeModules.RestartModule.restart();
+                } else {
+                    NativeModules.DevSettings?.reload?.();
+                }
             }, 1000);
         }, msUntilReset);
     };
@@ -237,7 +241,11 @@ const App: React.FC = () => {
                             16744192,
                         );
                         setTimeout(() => {
-                            NativeModules.DevSettings?.reload?.();
+                            if (NativeModules.RestartModule) {
+                                NativeModules.RestartModule.restart();
+                            } else {
+                                NativeModules.DevSettings?.reload?.();
+                            }
                         }, 1000);
                         break;
 

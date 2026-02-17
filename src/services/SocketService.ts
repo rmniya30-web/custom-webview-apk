@@ -7,11 +7,12 @@
 
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
 import { SOCKET_URL } from '@env';
-import { NativeModules } from 'react-native';
 import { WebSocketMessage, DeviceConfig } from '../types';
 
 const STORAGE_KEY = 'client_data';
+const BACKUP_FILE = `${RNFS.DocumentDirectoryPath}/device_config.json`;
 
 type MessageHandler = (message: WebSocketMessage) => void;
 type ConnectionHandler = (connected: boolean) => void;
@@ -45,15 +46,35 @@ class SocketService {
         this.disconnect();
 
         const socketUrl = SOCKET_URL || 'http://localhost:3001';
-        const savedJson = await AsyncStorage.getItem(STORAGE_KEY);
-        const savedData: Partial<DeviceConfig> = savedJson
-            ? JSON.parse(savedJson)
-            : {};
+        let savedData: Partial<DeviceConfig> = {};
+
+        try {
+            const savedJson = await AsyncStorage.getItem(STORAGE_KEY);
+            if (savedJson) {
+                savedData = JSON.parse(savedJson);
+                console.log('[Persistence] Loaded credentials from AsyncStorage:', savedData);
+            } else {
+                // Try backup file
+                const exists = await RNFS.exists(BACKUP_FILE);
+                if (exists) {
+                    const fileContent = await RNFS.readFile(BACKUP_FILE, 'utf8');
+                    savedData = JSON.parse(fileContent);
+                    console.log('[Persistence] Loaded credentials from Backup File:', savedData);
+                    // Restore to main storage
+                    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
+                } else {
+                    console.log('[Persistence] No credentials found anywhere. Starting pairing.');
+                }
+            }
+        } catch (error) {
+            console.error('[Persistence] Failed to load credentials:', error);
+        }
 
         const query: Record<string, string> = { type: 'client-player' };
         if (savedData.token) {
             query.token = savedData.token;
             if (savedData.id) query.deviceId = savedData.id;
+            console.log('[Persistence] Found token, attempting auth');
         }
 
         const socket = io(socketUrl, {
@@ -68,6 +89,7 @@ class SocketService {
         // ── Connection Events ────────────────────────────────────────
 
         socket.on('connect', () => {
+            console.log('[Socket] Connected');
             this.connectionHandler?.(true);
             if (this.reconnectTimeout) {
                 clearTimeout(this.reconnectTimeout);
@@ -78,6 +100,7 @@ class SocketService {
         });
 
         socket.on('disconnect', (reason) => {
+            console.log('[Socket] Disconnected:', reason);
             this.connectionHandler?.(false);
 
             // Auto-reconnect for network issues
@@ -88,7 +111,9 @@ class SocketService {
             ) {
                 if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
                 this.reconnectTimeout = setTimeout(() => {
-                    socket.connect();
+                    if (this.socket && !this.socket.connected) {
+                        this.socket.connect();
+                    }
                 }, 3000);
             }
         });
@@ -155,24 +180,50 @@ class SocketService {
      * Save device credentials to AsyncStorage after pairing/auth.
      */
     async saveCredentials(config: Partial<DeviceConfig>): Promise<void> {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        console.log('[Persistence] Saving credentials:', config);
+        const json = JSON.stringify(config);
+        try {
+            await AsyncStorage.setItem(STORAGE_KEY, json);
+            console.log('[Persistence] AsyncStorage save successful');
+        } catch (error: any) {
+            console.error('[Persistence] AsyncStorage save failed:', error);
+        }
+
+        try {
+            await RNFS.writeFile(BACKUP_FILE, json, 'utf8');
+            console.log('[Persistence] Backup file save successful');
+        } catch (error: any) {
+            console.error('[Persistence] Backup file save failed:', error);
+        }
     }
 
     /**
      * Check if device has saved credentials.
      */
     async hasCredentials(): Promise<boolean> {
-        const data = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!data) return false;
-        const parsed = JSON.parse(data);
-        return !!parsed.token;
+        try {
+            const data = await AsyncStorage.getItem(STORAGE_KEY);
+            if (!data) return false;
+            const parsed = JSON.parse(data);
+            return !!parsed.token;
+        } catch {
+            return false;
+        }
     }
 
     /**
      * Clear stored credentials (unpair).
      */
     async clearCredentials(): Promise<void> {
+        console.log('[Persistence] Clearing credentials');
         await AsyncStorage.removeItem(STORAGE_KEY);
+        try {
+            if (await RNFS.exists(BACKUP_FILE)) {
+                await RNFS.unlink(BACKUP_FILE);
+            }
+        } catch (e) {
+            console.error('[Persistence] Failed to clear backup:', e);
+        }
     }
 
     /**

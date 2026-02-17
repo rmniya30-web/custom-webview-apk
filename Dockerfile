@@ -76,6 +76,13 @@ COPY patches/banner.xml android/app/src/main/res/drawable/banner.xml
 # Copy BootReceiver to the correct package directory
 RUN mkdir -p android/app/src/main/java/com/signageplayer
 COPY patches/BootReceiver.java android/app/src/main/java/com/signageplayer/BootReceiver.java
+COPY patches/RestartModule.java android/app/src/main/java/com/signageplayer/RestartModule.java
+COPY patches/RestartPackage.java android/app/src/main/java/com/signageplayer/RestartPackage.java
+
+# Inject RestartPackage into MainApplication (supports both Java and Kotlin templates)
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/import com.facebook.react.ReactPackage/a import com.signageplayer.RestartPackage' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())|g' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());|g' || true
 
 # ── Step 6: Configure Gradle for optimized release build ──────
 RUN cd android && \
