@@ -1,17 +1,10 @@
-/**
- * CacheService — File-based video caching for low-end devices
- *
- * Replaces the browser IndexedDB cache from SeamlessPlayer.tsx.
- * Downloads videos to local filesystem with LRU eviction.
- */
-
 import RNFS from 'react-native-fs';
 import { MAX_CACHE_MB as MAX_CACHE_MB_ENV } from '@env';
 
 const CACHE_DIR = `${RNFS.CachesDirectoryPath}/video-cache`;
 const MANIFEST_PATH = `${CACHE_DIR}/_manifest.json`;
-const MAX_CACHE_MB = parseInt(MAX_CACHE_MB_ENV || '200', 10);
-const MAX_CACHE_BYTES = MAX_CACHE_MB * 1024 * 1024;
+const FALLBACK_MAX_CACHE_MB = parseInt(MAX_CACHE_MB_ENV || '300', 10);
+const FALLBACK_MAX_CACHE_BYTES = FALLBACK_MAX_CACHE_MB * 1024 * 1024;
 
 interface CacheEntry {
     url: string;
@@ -152,7 +145,16 @@ class CacheService {
     private async evictOldVideos(): Promise<void> {
         let totalSize = this.manifest.entries.reduce((sum, e) => sum + e.size, 0);
 
-        if (totalSize <= MAX_CACHE_BYTES) return;
+        let maxCacheBytes = FALLBACK_MAX_CACHE_BYTES;
+        try {
+            const fsInfo = await RNFS.getFSInfo();
+            // Use 90% of device total storage for cache limit
+            maxCacheBytes = fsInfo.totalSpace * 0.90;
+        } catch (err) {
+            console.warn('[CacheService] Failed to get FS info for dynamic cache limit. Using fallback.', err);
+        }
+
+        if (totalSize <= maxCacheBytes) return;
 
         // Sort by oldest access first
         const sorted = [...this.manifest.entries].sort(
@@ -160,7 +162,7 @@ class CacheService {
         );
 
         for (const entry of sorted) {
-            if (totalSize <= MAX_CACHE_BYTES) break;
+            if (totalSize <= maxCacheBytes) break;
 
             const filePath = `${CACHE_DIR}/${entry.filename}`;
             try {

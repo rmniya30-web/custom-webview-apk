@@ -58,14 +58,28 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         loadVideo(playlist[0].url).then((path) => {
             setActiveSource(path);
         });
-
-        // Prefetch next video
-        if (playlist.length > 1) {
-            loadVideo(playlist[1].url).then((path) => {
-                setStandbySource(path);
-            });
-        }
     }, [playlist]);
+
+    // ── Declarative standby prefetching ────────────────────────────
+    useEffect(() => {
+        if (playlist.length <= 1) return;
+
+        let isActive = true;
+        const nextIdx = (currentIndex + 1) % playlist.length;
+
+        // Clear old standby while caching the new one
+        setStandbySource(null);
+
+        loadVideo(playlist[nextIdx].url).then((path) => {
+            if (isActive) {
+                setStandbySource(path);
+            }
+        });
+
+        return () => {
+            isActive = false;
+        };
+    }, [currentIndex, playlist]);
 
     // ── Load video (cache-first) ───────────────────────────────────
     const loadVideo = async (url: string): Promise<string> => {
@@ -80,7 +94,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
         const current = currentIndexRef.current;
         const nextIdx = (current + 1) % playlist.length;
-        const followingIdx = (nextIdx + 1) % playlist.length;
 
         currentIndexRef.current = nextIdx;
         setCurrentIndex(nextIdx);
@@ -88,14 +101,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         // Reset progress tracker
         lastProgressRef.current = Date.now();
 
-        // Track loops for periodic refresh
-        loopCountRef.current += 1;
-
         // Check if session refresh is needed (at end of playlist loop)
         const isLastVideo = current === playlist.length - 1;
         const sessionDuration = Date.now() - sessionStartRef.current;
 
         if (isLastVideo) {
+            // Track full loops for periodic refresh
+            loopCountRef.current += 1;
+
             const shouldRefresh =
                 sessionDuration >= MAX_SESSION_MS || loopCountRef.current >= 20;
 
@@ -112,9 +125,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             }
         }
 
-        // Swap: standby becomes active, prefetch next into standby
+        // Swap: standby becomes active. Fallback to network URL if standby not ready
         if (standbySource) {
             setActiveSource(standbySource);
+        } else {
+            setActiveSource(playlist[nextIdx].url);
         }
 
         // For single-video loops, force remount since same source won't restart
@@ -122,10 +137,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             setActiveKey((prev) => prev + 1);
         }
 
-        // Prefetch the following video into standby
-        loadVideo(playlist[followingIdx].url).then((path) => {
-            setStandbySource(path);
-        });
+        // Note: prefetching the following video is now handled declaratively by useEffect
     }, [playlist, standbySource, onRefresh]);
 
     // ── Watchdog timer ─────────────────────────────────────────────
@@ -221,6 +233,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     style={styles.video}
                     resizeMode="contain"
                     muted={true}
+                    rate={1.0} // Explicitly strictly 1x playback speed
                     repeat={playlist.length === 1} // Native loop for single video
                     paused={false}
                     playInBackground={false}
