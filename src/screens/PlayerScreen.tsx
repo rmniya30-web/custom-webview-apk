@@ -25,9 +25,9 @@ interface PlayerScreenProps {
 
 // Session refresh after 2 hours (matches web player)
 const MAX_SESSION_MS = 2 * 60 * 60 * 1000;
-// Watchdog: detect playback stuck for >20 seconds
+// Watchdog: detect playback stuck for >30 seconds (increased for longer videos)
 const WATCHDOG_INTERVAL_MS = 5000;
-const WATCHDOG_STUCK_THRESHOLD_MS = 20000;
+const WATCHDOG_STUCK_THRESHOLD_MS = 30000;
 
 export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     playlist,
@@ -37,14 +37,16 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     // ── State ──────────────────────────────────────────────────────
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeSource, setActiveSource] = useState<string | null>(null);
-    const [standbySource, setStandbySource] = useState<string | null>(null);
-    const [activeKey, setActiveKey] = useState(0); // Force remount for single-video loop
+    const [activeKey, setActiveKey] = useState(0);
 
     const currentIndexRef = useRef(0);
+    const standbySourceRef = useRef<string | null>(null); // Ref to avoid stale closures
     const activeVideoRef = useRef<VideoRef>(null);
     const sessionStartRef = useRef(Date.now());
     const lastProgressRef = useRef(Date.now());
     const loopCountRef = useRef(0);
+    const playlistRef = useRef(playlist);
+    playlistRef.current = playlist;
 
     // ── Initialize first video ─────────────────────────────────────
     useEffect(() => {
@@ -54,6 +56,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         setCurrentIndex(0);
         loopCountRef.current = 0;
         sessionStartRef.current = Date.now();
+        standbySourceRef.current = null;
 
         loadVideo(playlist[0].url).then((path) => {
             setActiveSource(path);
@@ -68,11 +71,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         const nextIdx = (currentIndex + 1) % playlist.length;
 
         // Clear old standby while caching the new one
-        setStandbySource(null);
+        standbySourceRef.current = null;
 
         loadVideo(playlist[nextIdx].url).then((path) => {
             if (isActive) {
-                setStandbySource(path);
+                standbySourceRef.current = path;
             }
         });
 
@@ -89,11 +92,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     };
 
     // ── Handle video end → advance playlist ────────────────────────
+    // Uses refs only — no stale closure issues with long-running videos
     const handleVideoEnd = useCallback(() => {
-        if (playlist.length === 0) return;
+        const pl = playlistRef.current;
+        if (pl.length === 0) return;
 
         const current = currentIndexRef.current;
-        const nextIdx = (current + 1) % playlist.length;
+        const nextIdx = (current + 1) % pl.length;
 
         currentIndexRef.current = nextIdx;
         setCurrentIndex(nextIdx);
@@ -102,7 +107,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         lastProgressRef.current = Date.now();
 
         // Check if session refresh is needed (at end of playlist loop)
-        const isLastVideo = current === playlist.length - 1;
+        const isLastVideo = current === pl.length - 1;
         const sessionDuration = Date.now() - sessionStartRef.current;
 
         if (isLastVideo) {
@@ -125,20 +130,20 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             }
         }
 
-        // Swap: standby becomes active. Fallback to network URL if standby not ready
-        if (standbySource) {
-            setActiveSource(standbySource);
+        // Read standby from ref (always latest value, never stale)
+        const standby = standbySourceRef.current;
+        if (standby) {
+            setActiveSource(standby);
         } else {
-            setActiveSource(playlist[nextIdx].url);
+            // Fallback to network URL if standby not ready
+            setActiveSource(pl[nextIdx].url);
         }
 
-        // For single-video loops, force remount since same source won't restart
-        if (playlist.length === 1) {
-            setActiveKey((prev) => prev + 1);
-        }
+        // Force remount ExoPlayer for every transition to ensure clean state
+        setActiveKey((prev) => prev + 1);
 
-        // Note: prefetching the following video is now handled declaratively by useEffect
-    }, [playlist, standbySource, onRefresh]);
+        // Note: prefetching the following video is handled declaratively by useEffect
+    }, [onRefresh]);
 
     // ── Watchdog timer ─────────────────────────────────────────────
     useEffect(() => {
@@ -252,12 +257,12 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     onLoad={(_data: OnLoadData) => {
                         lastProgressRef.current = Date.now();
                     }}
-                    // ExoPlayer optimizations for low-end devices
+                    // ExoPlayer buffer config
                     bufferConfig={{
-                        minBufferMs: 2000,
-                        maxBufferMs: 10000,
-                        bufferForPlaybackMs: 1000,
-                        bufferForPlaybackAfterRebufferMs: 2000,
+                        minBufferMs: 5000,
+                        maxBufferMs: 50000,
+                        bufferForPlaybackMs: 2500,
+                        bufferForPlaybackAfterRebufferMs: 5000,
                     }}
                 />
             </View>
