@@ -82,6 +82,8 @@ class SocketService {
             transports: ['websocket', 'polling'],
             reconnectionAttempts: Infinity,
             reconnectionDelay: 3000,
+            pingInterval: 60000,
+            pingTimeout: 60000,
         });
 
         this.socket = socket;
