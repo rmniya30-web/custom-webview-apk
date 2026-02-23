@@ -37,13 +37,13 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     // ── State ──────────────────────────────────────────────────────
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeSource, setActiveSource] = useState<string | null>(null);
-    const [activeKey, setActiveKey] = useState(0);
 
     const currentIndexRef = useRef(0);
     const standbySourceRef = useRef<string | null>(null); // Ref to avoid stale closures
     const activeVideoRef = useRef<VideoRef>(null);
     const sessionStartRef = useRef(Date.now());
     const lastProgressRef = useRef(Date.now());
+    const lastEndEventRef = useRef(0);
     const loopCountRef = useRef(0);
     const playlistRef = useRef(playlist);
     playlistRef.current = playlist;
@@ -97,6 +97,11 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         const pl = playlistRef.current;
         if (pl.length === 0) return;
 
+        // Debounce: ignore if called within 500ms of last call
+        const now = Date.now();
+        if (now - lastEndEventRef.current < 500) return;
+        lastEndEventRef.current = now;
+
         const current = currentIndexRef.current;
         const nextIdx = (current + 1) % pl.length;
 
@@ -139,10 +144,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             setActiveSource(pl[nextIdx].url);
         }
 
-        // Force remount ExoPlayer for every transition to ensure clean state
-        setActiveKey((prev) => prev + 1);
-
-        // Note: prefetching the following video is handled declaratively by useEffect
+        // Note: changing source.uri swaps media without recreating ExoPlayer.
+        // No key remount needed — avoids MediaCodec thread thrashing.
     }, [onRefresh]);
 
     // ── Watchdog timer ─────────────────────────────────────────────
@@ -230,7 +233,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             <View style={[styles.videoContainer, getContainerStyle()]}>
                 {/* Active Player */}
                 <Video
-                    key={`active-${activeKey}`}
+                    key="active-player"
                     ref={activeVideoRef}
                     source={{
                         uri: isFileUri ? `file://${activeSource}` : activeSource,
