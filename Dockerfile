@@ -85,7 +85,13 @@ RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|/
 RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());|g' || true
 
 # ── Step 5.1: Replace Default Icon ──────────────────────────────
-RUN rm -rf android/app/src/main/res/mipmap-anydpi-v26 && \
+# Remove ALL adaptive-icon XML dirs and leftover foreground/background drawables
+# so the PNG in mipmap-* folders is used directly by the launcher.
+RUN rm -rf android/app/src/main/res/mipmap-anydpi-* && \
+    find android/app/src/main/res -name 'ic_launcher_foreground.*' -delete && \
+    find android/app/src/main/res -name 'ic_launcher_background.*' -delete && \
+    find android/app/src/main/res -name 'ic_launcher.xml' -delete && \
+    find android/app/src/main/res -name 'ic_launcher_round.xml' -delete && \
     mkdir -p android/app/src/main/res/mipmap-xxxhdpi && \
     mkdir -p android/app/src/main/res/mipmap-xxhdpi && \
     mkdir -p android/app/src/main/res/mipmap-xhdpi && \
