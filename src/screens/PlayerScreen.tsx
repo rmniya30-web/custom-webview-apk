@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus } from 'react-native';
+import { View, StyleSheet, AppState, AppStateStatus, Dimensions } from 'react-native';
 import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
@@ -196,28 +196,37 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     );
 
     // ── Orientation transform ──────────────────────────────────────
+    // For 90°/270°, we swap the container dimensions so the rotated frame
+    // fills the physical screen. resizeMode="contain" on the <Video> then
+    // preserves the video's native aspect ratio (portrait stays portrait,
+    // landscape stays landscape) with black bars — no stretching.
     const getContainerStyle = () => {
+        const { width: screenW, height: screenH } = Dimensions.get('window');
+
         switch (orientation) {
             case '90':
                 return {
+                    width: screenH,
+                    height: screenW,
                     transform: [{ rotate: '90deg' }],
-                    width: '100%' as any,
-                    height: '100%' as any,
                 };
             case '180':
                 return {
+                    width: screenW,
+                    height: screenH,
                     transform: [{ rotate: '180deg' }],
-                    width: '100%' as any,
-                    height: '100%' as any,
                 };
             case '270':
                 return {
+                    width: screenH,
+                    height: screenW,
                     transform: [{ rotate: '270deg' }],
-                    width: '100%' as any,
-                    height: '100%' as any,
                 };
             default:
-                return {};
+                return {
+                    width: screenW,
+                    height: screenH,
+                };
         }
     };
 
@@ -277,12 +286,12 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
-    },
-    videoContainer: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    videoContainer: {
         backgroundColor: '#000',
+        overflow: 'hidden',
     },
     video: {
         position: 'absolute',
