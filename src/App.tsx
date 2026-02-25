@@ -200,8 +200,10 @@ const App: React.FC = () => {
 
                     // ── Sync state (heartbeat response with latest state) ──
                     case 'sync_state':
-                        if (message.payload?.orientation) {
-                            setOrientation(message.payload.orientation);
+                        if (message.payload?.orientation !== undefined) {
+                            const newOrientation = String(message.payload.orientation) as Orientation;
+                            console.log('[Orientation] sync_state received:', newOrientation);
+                            setOrientation(newOrientation);
                         }
 
                         if (message.payload?.playlist) {

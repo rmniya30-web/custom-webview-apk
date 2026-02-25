@@ -196,36 +196,54 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     );
 
     // ── Orientation transform ──────────────────────────────────────
-    // For 90°/270°, we swap the container dimensions so the rotated frame
-    // fills the physical screen. resizeMode="contain" on the <Video> then
-    // preserves the video's native aspect ratio (portrait stays portrait,
-    // landscape stays landscape) with black bars — no stretching.
+    // Matches web player: absolute-center the container, swap dimensions
+    // for 90°/270°. resizeMode="contain" on <Video> keeps the video's
+    // native aspect ratio with black bars — no stretching.
     const getContainerStyle = () => {
         const { width: screenW, height: screenH } = Dimensions.get('window');
+
+        // Base: absolutely centered at screen midpoint
+        const base = {
+            position: 'absolute' as const,
+            top: screenH / 2,
+            left: screenW / 2,
+        };
 
         switch (orientation) {
             case '90':
                 return {
+                    ...base,
                     width: screenH,
                     height: screenW,
+                    marginLeft: -(screenH / 2),
+                    marginTop: -(screenW / 2),
                     transform: [{ rotate: '90deg' }],
                 };
             case '180':
                 return {
+                    ...base,
                     width: screenW,
                     height: screenH,
+                    marginLeft: -(screenW / 2),
+                    marginTop: -(screenH / 2),
                     transform: [{ rotate: '180deg' }],
                 };
             case '270':
                 return {
+                    ...base,
                     width: screenH,
                     height: screenW,
+                    marginLeft: -(screenH / 2),
+                    marginTop: -(screenW / 2),
                     transform: [{ rotate: '270deg' }],
                 };
             default:
                 return {
+                    ...base,
                     width: screenW,
                     height: screenH,
+                    marginLeft: -(screenW / 2),
+                    marginTop: -(screenH / 2),
                 };
         }
     };
@@ -286,12 +304,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
-        justifyContent: 'center',
-        alignItems: 'center',
+        overflow: 'hidden',
     },
     videoContainer: {
         backgroundColor: '#000',
-        overflow: 'hidden',
     },
     video: {
         position: 'absolute',
@@ -302,3 +318,4 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
 });
+
