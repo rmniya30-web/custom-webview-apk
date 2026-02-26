@@ -11,8 +11,8 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus, Dimensions } from 'react-native';
-import Video, { OnLoadData, OnProgressData, VideoRef, ViewType } from 'react-native-video';
+import { View, StyleSheet, AppState, AppStateStatus, NativeModules } from 'react-native';
+import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
 import { VideoSource, Orientation } from '../types';
@@ -195,58 +195,17 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         [handleVideoEnd],
     );
 
-    // ── Orientation transform ──────────────────────────────────────
-    // Matches web player: absolute-center the container, swap dimensions
-    // for 90°/270°. resizeMode="contain" on <Video> keeps the video's
-    // native aspect ratio with black bars — no stretching.
-    const getContainerStyle = () => {
-        const { width: screenW, height: screenH } = Dimensions.get('window');
-
-        // Base: absolutely centered at screen midpoint
-        const base = {
-            position: 'absolute' as const,
-            top: screenH / 2,
-            left: screenW / 2,
-        };
-
-        switch (orientation) {
-            case '90':
-                return {
-                    ...base,
-                    width: screenH,
-                    height: screenW,
-                    marginLeft: -(screenH / 2),
-                    marginTop: -(screenW / 2),
-                    transform: [{ rotate: '90deg' }],
-                };
-            case '180':
-                return {
-                    ...base,
-                    width: screenW,
-                    height: screenH,
-                    marginLeft: -(screenW / 2),
-                    marginTop: -(screenH / 2),
-                    transform: [{ rotate: '180deg' }],
-                };
-            case '270':
-                return {
-                    ...base,
-                    width: screenH,
-                    height: screenW,
-                    marginLeft: -(screenH / 2),
-                    marginTop: -(screenW / 2),
-                    transform: [{ rotate: '270deg' }],
-                };
-            default:
-                return {
-                    ...base,
-                    width: screenW,
-                    height: screenH,
-                    marginLeft: -(screenW / 2),
-                    marginTop: -(screenH / 2),
-                };
+    // ── Orientation: Native Activity rotation ────────────────────
+    // CSS transforms do NOT rotate ExoPlayer's video surface on Android.
+    // Instead, we call the native ScreenOrientationModule to physically
+    // rotate the Activity, which rotates everything including the video.
+    useEffect(() => {
+        const { ScreenOrientationModule } = NativeModules;
+        if (ScreenOrientationModule) {
+            console.log('[Orientation] Setting native orientation:', orientation);
+            ScreenOrientationModule.setOrientation(orientation);
         }
-    };
+    }, [orientation]);
 
     if (!activeSource) {
         // Still loading first video — show black screen
@@ -257,7 +216,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     return (
         <View style={styles.container}>
-            <View style={[styles.videoContainer, getContainerStyle()]}>
+            <View style={styles.videoContainer}>
                 {/* Active Player */}
                 <Video
                     key="active-player"
@@ -266,7 +225,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                         uri: isFileUri ? `file://${activeSource}` : activeSource,
                     }}
                     style={styles.video}
-                    viewType={ViewType.TEXTURE}
                     resizeMode="contain"
                     muted={true}
                     rate={1.0} // Explicitly strictly 1x playback speed
@@ -305,9 +263,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
-        overflow: 'hidden',
     },
     videoContainer: {
+        flex: 1,
         backgroundColor: '#000',
     },
     video: {

@@ -78,11 +78,14 @@ RUN mkdir -p android/app/src/main/java/com/signageplayer
 COPY patches/BootReceiver.java android/app/src/main/java/com/signageplayer/BootReceiver.java
 COPY patches/RestartModule.java android/app/src/main/java/com/signageplayer/RestartModule.java
 COPY patches/RestartPackage.java android/app/src/main/java/com/signageplayer/RestartPackage.java
+COPY patches/ScreenOrientationModule.java android/app/src/main/java/com/signageplayer/ScreenOrientationModule.java
+COPY patches/ScreenOrientationPackage.java android/app/src/main/java/com/signageplayer/ScreenOrientationPackage.java
 
 # Inject RestartPackage into MainApplication (supports both Java and Kotlin templates)
 RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/import com.facebook.react.ReactPackage/a import com.signageplayer.RestartPackage' || true
-RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())|g' || true
-RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());|g' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/import com.facebook.react.ReactPackage/a import com.signageplayer.ScreenOrientationPackage' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())\n                    add(ScreenOrientationPackage())|g' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());\n            packages.add(new ScreenOrientationPackage());|g' || true
 
 # ── Step 5.1: Replace Default Icon ──────────────────────────────
 # Remove ALL adaptive-icon XML dirs and leftover foreground/background drawables
