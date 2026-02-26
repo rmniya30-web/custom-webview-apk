@@ -72,6 +72,9 @@ COPY patches/styles.xml android/app/src/main/res/values/styles.xml
 # Copy TV banner
 RUN mkdir -p android/app/src/main/res/drawable
 COPY patches/banner.xml android/app/src/main/res/drawable/banner.xml
+# Copy network security config for SSL/TLS trust
+RUN mkdir -p android/app/src/main/res/xml
+COPY patches/network_security_config.xml android/app/src/main/res/xml/network_security_config.xml
 
 # Copy BootReceiver to the correct package directory
 RUN mkdir -p android/app/src/main/java/com/signageplayer
