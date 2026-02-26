@@ -90,6 +90,8 @@ class SocketService {
 
         // ── Connection Events ────────────────────────────────────────
 
+        console.log('[Socket] Connecting to:', socketUrl);
+
         socket.on('connect', () => {
             console.log('[Socket] Connected');
             this.connectionHandler?.(true);
@@ -99,6 +101,10 @@ class SocketService {
             }
             // Request current state from server on (re)connect
             socket.emit('get_playback_state');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('[Socket] Connection error:', error?.message || error);
         });
 
         socket.on('disconnect', (reason) => {
