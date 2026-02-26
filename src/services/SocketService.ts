@@ -79,7 +79,7 @@ class SocketService {
 
         const socket = io(socketUrl, {
             query,
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
             reconnectionAttempts: Infinity,
             reconnectionDelay: 3000,
             pingInterval: 60000,
