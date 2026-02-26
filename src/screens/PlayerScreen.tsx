@@ -12,7 +12,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, AppState, AppStateStatus, Dimensions } from 'react-native';
-import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
+import Video, { OnLoadData, OnProgressData, VideoRef, ViewType } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
 import { VideoSource, Orientation } from '../types';
@@ -266,6 +266,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                         uri: isFileUri ? `file://${activeSource}` : activeSource,
                     }}
                     style={styles.video}
+                    viewType={ViewType.TEXTURE}
                     resizeMode="contain"
                     muted={true}
                     rate={1.0} // Explicitly strictly 1x playback speed
