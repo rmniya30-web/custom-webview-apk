@@ -10,8 +10,8 @@
  *   - 2-hour session refresh for memory leak prevention
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus, NativeModules } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, AppState, AppStateStatus, Dimensions } from 'react-native';
 import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
@@ -195,17 +195,27 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         [handleVideoEnd],
     );
 
-    // ── Orientation: Native Activity rotation ────────────────────
-    // CSS transforms do NOT rotate ExoPlayer's video surface on Android.
-    // Instead, we call the native ScreenOrientationModule to physically
-    // rotate the Activity, which rotates everything including the video.
-    useEffect(() => {
-        const { ScreenOrientationModule } = NativeModules;
-        if (ScreenOrientationModule) {
-            console.log('[Orientation] Setting native orientation:', orientation);
-            ScreenOrientationModule.setOrientation(orientation);
-        }
-    }, [orientation]);
+    // ── Orientation: CSS Transform rotation ────────────────────────
+    // useTextureView={true} on <Video> renders through TextureView instead
+    // of SurfaceView, which supports CSS transforms (rotation/scaling).
+    // This works on all API levels including API 28.
+    const { width: screenW, height: screenH } = Dimensions.get('window');
+
+    const rotationStyle = useMemo(() => {
+        const deg = parseInt(String(orientation), 10) || 0;
+        if (deg === 0) return {};
+
+        // For 90/270, swap width and height so video fills the rotated viewport
+        const needsSwap = deg === 90 || deg === 270;
+        return {
+            transform: [
+                { rotate: `${deg}deg` },
+                ...(needsSwap
+                    ? [{ scaleX: screenH / screenW }, { scaleY: screenW / screenH }]
+                    : []),
+            ],
+        };
+    }, [orientation, screenW, screenH]);
 
     if (!activeSource) {
         // Still loading first video — show black screen
@@ -216,7 +226,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     return (
         <View style={styles.container}>
-            <View style={styles.videoContainer}>
+            <View style={[styles.videoContainer, rotationStyle]}>
                 {/* Active Player */}
                 <Video
                     key="active-player"
@@ -226,6 +236,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
                     }}
                     style={styles.video}
                     resizeMode="contain"
+                    useTextureView={true}
                     muted={true}
                     rate={1.0} // Explicitly strictly 1x playback speed
                     repeat={playlist.length === 1} // Native loop for single video
