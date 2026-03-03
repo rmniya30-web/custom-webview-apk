@@ -197,23 +197,40 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     // ── Orientation: CSS Transform rotation ────────────────────────
     // useTextureView={true} on <Video> renders through TextureView instead
-    // of SurfaceView, which supports CSS transforms (rotation/scaling).
+    // of SurfaceView, which supports CSS transforms (rotation).
     // This works on all API levels including API 28.
+    //
+    // For 90°/270°: We make the container portrait-sized (screenH × screenW),
+    // translate it to center on the landscape screen, then rotate.
+    // No scaling = no pixel distortion. The video fills the portrait
+    // container naturally via resizeMode="contain".
     const { width: screenW, height: screenH } = Dimensions.get('window');
 
     const rotationStyle = useMemo(() => {
         const deg = parseInt(String(orientation), 10) || 0;
         if (deg === 0) return {};
 
-        // For 90/270, swap width and height so video fills the rotated viewport
         const needsSwap = deg === 90 || deg === 270;
+        if (needsSwap) {
+            // Container becomes portrait: width=screenH, height=screenW
+            // Translate to center it, then rotate
+            return {
+                position: 'absolute' as const,
+                width: screenH,
+                height: screenW,
+                top: 0,
+                left: 0,
+                transform: [
+                    { translateX: (screenW - screenH) / 2 },
+                    { translateY: (screenH - screenW) / 2 },
+                    { rotate: `${deg}deg` },
+                ],
+            };
+        }
+
+        // 180°: just flip upside-down, same dimensions
         return {
-            transform: [
-                { rotate: `${deg}deg` },
-                ...(needsSwap
-                    ? [{ scaleX: screenH / screenW }, { scaleY: screenW / screenH }]
-                    : []),
-            ],
+            transform: [{ rotate: `${deg}deg` }],
         };
     }, [orientation, screenW, screenH]);
 
