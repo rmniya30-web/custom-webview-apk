@@ -10,8 +10,8 @@
  *   - 2-hour session refresh for memory leak prevention
  */
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, StyleSheet, AppState, AppStateStatus, NativeModules } from 'react-native';
 import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
@@ -195,44 +195,27 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         [handleVideoEnd],
     );
 
-    // ── Orientation: CSS Transform rotation ────────────────────────
-    // useTextureView={true} on <Video> renders through TextureView instead
-    // of SurfaceView, which supports CSS transforms (rotation).
-    // This works on all API levels including API 28.
-    //
-    // For 90°/270°: We make the container portrait-sized (screenH × screenW),
-    // translate it to center on the landscape screen, then rotate.
-    // No scaling = no pixel distortion. The video fills the portrait
-    // container naturally via resizeMode="contain".
-    const { width: screenW, height: screenH } = Dimensions.get('window');
+    // ── Orientation: Native TextureView Matrix rotation ──────────
+    // CSS transforms do NOT rotate TextureView content on Android TV API 28.
+    // Instead, we use a native module that calls TextureView.setTransform(Matrix)
+    // to rotate the video texture directly at the GPU level.
+    // useTextureView={true} on <Video> is required for this to work.
+    useEffect(() => {
+        const { VideoRotationModule } = NativeModules;
+        if (!VideoRotationModule) return;
 
-    const rotationStyle = useMemo(() => {
         const deg = parseInt(String(orientation), 10) || 0;
-        if (deg === 0) return {};
+        console.log('[Orientation] Setting native rotation:', deg);
+        VideoRotationModule.setRotation(deg);
 
-        const needsSwap = deg === 90 || deg === 270;
-        if (needsSwap) {
-            // Container becomes portrait: width=screenH, height=screenW
-            // Translate to center it, then rotate
-            return {
-                position: 'absolute' as const,
-                width: screenH,
-                height: screenW,
-                top: 0,
-                left: 0,
-                transform: [
-                    { translateX: (screenW - screenH) / 2 },
-                    { translateY: (screenH - screenW) / 2 },
-                    { rotate: `${deg}deg` },
-                ],
-            };
-        }
+        // Re-apply after delay: ExoPlayer recreates the TextureView surface
+        // on orientation change, so the matrix needs to be reapplied.
+        const timer = setTimeout(() => {
+            VideoRotationModule.setRotation(deg);
+        }, 500);
 
-        // 180°: just flip upside-down, same dimensions
-        return {
-            transform: [{ rotate: `${deg}deg` }],
-        };
-    }, [orientation, screenW, screenH]);
+        return () => clearTimeout(timer);
+    }, [orientation]);
 
     if (!activeSource) {
         // Still loading first video — show black screen
@@ -243,7 +226,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
     return (
         <View style={styles.container}>
-            <View style={[styles.videoContainer, rotationStyle]}>
+            <View style={styles.videoContainer}>
                 {/* Active Player */}
                 <Video
                     key="active-player"
