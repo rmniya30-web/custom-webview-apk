@@ -34,10 +34,15 @@ const App: React.FC = () => {
     const [playerKey, setPlayerKey] = useState(0);
 
     const playlistRef = useRef<VideoSource[]>([]);
+    const orientationRef = useRef<Orientation>('0');
 
     useEffect(() => {
         playlistRef.current = playlist;
     }, [playlist]);
+
+    useEffect(() => {
+        orientationRef.current = orientation;
+    }, [orientation]);
 
     // ── Initialize ─────────────────────────────────────────────────
     useEffect(() => {
@@ -202,8 +207,13 @@ const App: React.FC = () => {
                     case 'sync_state':
                         if (message.payload?.orientation !== undefined) {
                             const newOrientation = String(message.payload.orientation) as Orientation;
-                            console.log('[Orientation] sync_state received:', newOrientation);
-                            setOrientation(newOrientation);
+                            if (newOrientation !== orientationRef.current) {
+                                console.log('[Orientation] Changed:', orientationRef.current, '→', newOrientation);
+                                setOrientation(newOrientation);
+                                // Clear cache (old videos are for wrong rotation) and restart player
+                                cacheService.clearAll();
+                                setPlayerKey((prev) => prev + 1);
+                            }
                         }
 
                         if (message.payload?.playlist) {

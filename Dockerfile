@@ -81,14 +81,11 @@ RUN mkdir -p android/app/src/main/java/com/signageplayer
 COPY patches/BootReceiver.java android/app/src/main/java/com/signageplayer/BootReceiver.java
 COPY patches/RestartModule.java android/app/src/main/java/com/signageplayer/RestartModule.java
 COPY patches/RestartPackage.java android/app/src/main/java/com/signageplayer/RestartPackage.java
-COPY patches/VideoRotationModule.java android/app/src/main/java/com/signageplayer/VideoRotationModule.java
-COPY patches/VideoRotationPackage.java android/app/src/main/java/com/signageplayer/VideoRotationPackage.java
 
-# Inject packages into MainApplication (supports both Java and Kotlin templates)
+# Inject RestartPackage into MainApplication (supports both Java and Kotlin templates)
 RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/import com.facebook.react.ReactPackage/a import com.signageplayer.RestartPackage' || true
-RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i '/import com.facebook.react.ReactPackage/a import com.signageplayer.VideoRotationPackage' || true
-RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())\n                    add(VideoRotationPackage())|g' || true
-RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());\n            packages.add(new VideoRotationPackage());|g' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// add(MyReactNativePackage())|add(RestartPackage())|g' || true
+RUN find android/app/src/main/java -name "MainApplication.*" | xargs sed -i 's|// packages.add(new MyReactNativePackage());|packages.add(new RestartPackage());|g' || true
 
 # ── Step 5.1: Replace Default Icon ──────────────────────────────
 # Remove ALL adaptive-icon XML dirs and leftover foreground/background drawables

@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, AppState, AppStateStatus, NativeModules } from 'react-native';
+import { View, StyleSheet, AppState, AppStateStatus } from 'react-native';
 import Video, { OnLoadData, OnProgressData, VideoRef } from 'react-native-video';
 import { cacheService } from '../services/CacheService';
 import { sendDiscordLog } from '../services/DiscordLogger';
@@ -58,7 +58,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         sessionStartRef.current = Date.now();
         standbySourceRef.current = null;
 
-        loadVideo(playlist[0].url).then((path) => {
+        loadVideo(resolveUrl(playlist[0].url)).then((path) => {
             setActiveSource(path);
         });
     }, [playlist]);
@@ -73,7 +73,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         // Clear old standby while caching the new one
         standbySourceRef.current = null;
 
-        loadVideo(playlist[nextIdx].url).then((path) => {
+        loadVideo(resolveUrl(playlist[nextIdx].url)).then((path) => {
             if (isActive) {
                 standbySourceRef.current = path;
             }
@@ -83,6 +83,14 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
             isActive = false;
         };
     }, [currentIndex, playlist]);
+
+    // ── Resolve {deg} placeholder in CDN URL ──────────────────────
+    // Server encodes videos into 4 rotation profiles: deg0, deg90, deg180, deg270.
+    // The playlist URL contains {deg} placeholder, e.g.: .../videos/folder/{deg}.mp4
+    const resolveUrl = (url: string): string => {
+        const deg = parseInt(String(orientation), 10) || 0;
+        return url.replace('{deg}', `deg${deg}`);
+    };
 
     // ── Load video (cache-first) ───────────────────────────────────
     const loadVideo = async (url: string): Promise<string> => {
@@ -195,27 +203,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         [handleVideoEnd],
     );
 
-    // ── Orientation: Native TextureView Matrix rotation ──────────
-    // CSS transforms do NOT rotate TextureView content on Android TV API 28.
-    // Instead, we use a native module that calls TextureView.setTransform(Matrix)
-    // to rotate the video texture directly at the GPU level.
-    // useTextureView={true} on <Video> is required for this to work.
-    useEffect(() => {
-        const { VideoRotationModule } = NativeModules;
-        if (!VideoRotationModule) return;
 
-        const deg = parseInt(String(orientation), 10) || 0;
-        console.log('[Orientation] Setting native rotation:', deg);
-        VideoRotationModule.setRotation(deg);
-
-        // Re-apply after delay: ExoPlayer recreates the TextureView surface
-        // on orientation change, so the matrix needs to be reapplied.
-        const timer = setTimeout(() => {
-            VideoRotationModule.setRotation(deg);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [orientation]);
 
     if (!activeSource) {
         // Still loading first video — show black screen
