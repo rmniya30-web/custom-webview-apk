@@ -24,6 +24,7 @@ class SocketService {
     private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
     private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    public _unpairRetryCount: number = 0;
 
     /**
      * Register handlers before connecting.
@@ -82,11 +83,16 @@ class SocketService {
             transports: ['websocket', 'polling'],
             reconnectionAttempts: Infinity,
             reconnectionDelay: 3000,
-            pingInterval: 60000,
-            pingTimeout: 60000,
         });
 
         this.socket = socket;
+        // ── Reconnection Events ───────────────────────────────────────
+        socket.io.on('reconnect_attempt', (attempt) => {
+            console.log(`[Socket] Reconnection attempt #${attempt}`);
+        });
+        socket.io.on('reconnect', (attempt) => {
+            console.log(`[Socket] Reconnected after ${attempt} attempts`);
+        });
 
         // ── Connection Events ────────────────────────────────────────
 

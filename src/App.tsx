@@ -141,6 +141,8 @@ const App: React.FC = () => {
                     // ── Auth (Returning device, token recognized) ──
                     case 'auth':
                         if (message.payload) {
+                            // Reset unpair retry counter on successful auth
+                            socketService._unpairRetryCount = 0;
                             const p = message.payload as any;
                             setDeviceId(p.id || '');
                             setDeviceCode(p.code || '');
@@ -238,11 +240,23 @@ const App: React.FC = () => {
 
                     // ── Unpair ──
                     case 'unpair':
-                        await socketService.clearCredentials();
-                        socketService.disconnect();
-                        setAppState('loading');
-                        // Reconnect fresh (will start pairing flow)
-                        socketService.connect();
+                        // Retry before clearing — handles server restart races
+                        if (!socketService._unpairRetryCount) {
+                            socketService._unpairRetryCount = 1;
+                            console.warn('[Socket] Received unpair. Retrying auth in 10s before clearing...');
+                            socketService.disconnect();
+                            await new Promise(r => setTimeout(r, 10000));
+                            // Re-connect using saved credentials from storage
+                            await socketService.connect();
+                        } else {
+                            // Second unpair — device was genuinely deleted
+                            console.log('[Socket] Second unpair received. Clearing credentials.');
+                            socketService._unpairRetryCount = 0;
+                            await socketService.clearCredentials();
+                            socketService.disconnect();
+                            setAppState('loading');
+                            socketService.connect();
+                        }
                         break;
 
                     // ── Reset (manual from dashboard) ──
